@@ -1,5 +1,6 @@
 import { NormalisedPokemon } from '@/lib/pokeapi';
 import { BASIC_MOVES, Move } from '@/lib/battle/moves';
+import { calcHpBonus } from '@/lib/progression/progression';
 import type {
   BattlePokemon,
   DamageResult,
@@ -43,14 +44,16 @@ function getMovesForPokemon(pokemon: NormalisedPokemon): Move[] {
  */
 export function createBattlePokemon(
   pokemon: NormalisedPokemon,
-  level: number
+  level: number,
+  isPlayer = false
 ): BattlePokemon {
   const levelMultiplier = 1 + (level - 1) * 0.02;
-  const hp = Math.round(pokemon.stats.hp * levelMultiplier);
+  const baseHp = Math.round(pokemon.stats.hp * levelMultiplier);
+  const bonus = isPlayer ? calcHpBonus(level) : 0;
   const moves = getMovesForPokemon(pokemon);
   return {
     pokemon,
-    hp,
+    hp: baseHp + bonus,
     level,
     cooldowns: new Array(moves.length).fill(0)
   };

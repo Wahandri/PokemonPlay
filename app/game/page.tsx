@@ -12,6 +12,7 @@ import { BattleArena } from '@/components/BattleArena';
 import { LogPanel } from '@/components/LogPanel';
 import { TeamPanel } from '@/components/TeamPanel';
 import { UpgradePanel } from '@/components/UpgradePanel';
+import { ProgressBar } from '@/components/ProgressBar';
 import { useTranslate } from '@/hooks/useTranslate';
 
 export default function GamePage() {
@@ -87,8 +88,16 @@ export default function GamePage() {
           <div className="text-sm">
             {t('level')}: {player.level}
           </div>
-          <div className="text-sm">
-            {t('experience')}: {player.xp}
+          <div className="text-sm flex items-center space-x-2">
+            <span>
+              {t('experience')}: {player.xp}
+            </span>
+            <ProgressBar
+              value={player.xp - (player.level - 1) * 100}
+              max={100}
+              color="yellow"
+              className="w-24"
+            />
           </div>
           <div className="text-sm">
             {t('coins')}: {player.coins}
