@@ -31,8 +31,11 @@ interface BattleState {
   /** Internal battle participants. */
   playerBattle: BattlePokemon | null;
   enemyBattle: BattlePokemon | null;
+  pendingCapture: NormalisedPokemon | null;
   startBattle: () => Promise<void>;
   playerAttack: (index: number) => Promise<void>;
+  captureEnemy: () => Promise<void>;
+  declineCapture: () => Promise<void>;
   nextBattle: () => Promise<void>;
   reset: () => void;
 }
@@ -48,6 +51,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
   turn: 'player',
   playerBattle: null,
   enemyBattle: null,
+  pendingCapture: null,
   startBattle: async () => {
     const { team } = useTeamStore.getState();
     if (!team.length) return;
@@ -111,7 +115,9 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       const autoHealLevel = levels['auto-heal'];
       const healFraction = 0.3 + autoHealLevel * 0.1;
       useTeamStore.getState().healTeam(healFraction);
-      set({ status: 'won' });
+      const { team, maxTeamSize } = useTeamStore.getState();
+      const canCapture = team.length < maxTeamSize ? enemy : null;
+      set({ status: 'won', pendingCapture: canCapture });
       return;
     }
 
@@ -139,6 +145,17 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       set({ turn: 'player' });
     }
   },
+  captureEnemy: async () => {
+    const { enemy, enemyLevel } = get();
+    if (!enemy) return;
+    await useTeamStore.getState().capturePokemon(enemy, enemyLevel);
+    set({ pendingCapture: null });
+    await get().nextBattle();
+  },
+  declineCapture: async () => {
+    set({ pendingCapture: null });
+    await get().nextBattle();
+  },
   nextBattle: async () => {
     // Pick enemy based on player's level for smoother difficulty curve
     const player = usePlayerStore.getState();
@@ -163,7 +180,8 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       playerMoves: [],
       playerBattle: null,
       enemyBattle: null,
-      turn: 'player'
+      turn: 'player',
+      pendingCapture: null
     });
   },
   reset: () => {
@@ -177,7 +195,8 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       playerMoves: [],
       playerBattle: null,
       enemyBattle: null,
-      turn: 'player'
+      turn: 'player',
+      pendingCapture: null
     });
   }
 }));

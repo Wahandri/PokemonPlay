@@ -40,7 +40,7 @@ export function TeamPanel() {
           key={idx}
           className="p-2 bg-gray-200 dark:bg-gray-800 rounded flex items-center justify-center text-gray-500"
         >
-          Empty
+          {t('empty')}
         </div>
       ))}
     </div>
