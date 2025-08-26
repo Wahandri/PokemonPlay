@@ -1,21 +1,31 @@
-"use client";
+'use client';
 
 import { useBattleStore } from '@/store/battleStore';
 import { useTeamStore } from '@/store/teamStore';
 import { ProgressBar } from '@/components/ProgressBar';
 import { useTranslate } from '@/hooks/useTranslate';
 import Image from 'next/image';
+import { motion } from 'framer-motion';
 
 export function BattleArena() {
-  const { enemy, enemyLevel, status, log, startBattle, nextBattle } = useBattleStore();
+  const {
+    enemy,
+    enemyLevel,
+    status,
+    log,
+    startBattle,
+    nextBattle,
+    playerHp,
+    enemyHp
+  } = useBattleStore();
   const { team } = useTeamStore();
   const t = useTranslate();
   const player = team[0];
-  const enemyHp = enemy ? createMaxHpEnemy(enemy, enemyLevel) : 0;
-  // Determine player's current HP from team store
-  const playerHp = player ? player.hp : 0;
-  const playerMaxHp = player ? createMaxHp({ pokemon: player.pokemon, level: player.level, hp: player.hp }) : 1;
+  const playerMaxHp = player ? createMaxHp(player) : 1;
   const enemyMaxHp = enemy ? createMaxHpEnemy(enemy, enemyLevel) : 1;
+  const last = log[log.length - 1];
+  const enemyHit = last?.attacker === 'player' && status === 'running';
+  const playerHit = last?.attacker === 'enemy' && status === 'running';
 
   return (
     <div className="flex flex-col items-center space-y-4">
@@ -24,12 +34,28 @@ export function BattleArena() {
         <div className="flex flex-col items-center">
           <div className="text-center">
             <div className="font-semibold capitalize">{enemy.name}</div>
-            <div className="text-xs">{t('level')}: {enemyLevel}</div>
+            <div className="text-xs">
+              {t('level')}: {enemyLevel}
+            </div>
           </div>
-          <div className="w-32 h-32 relative">
-            <Image src={enemy.sprites.front} alt={enemy.name} fill style={{ objectFit: 'contain' }} />
-          </div>
-          <ProgressBar value={enemyHp} max={enemyMaxHp} color="red" className="w-32" />
+          <motion.div
+            className="w-32 h-32 relative"
+            animate={enemyHit ? { x: [0, -20, 0] } : {}}
+            transition={{ duration: 0.4 }}
+          >
+            <Image
+              src={enemy.sprites.front}
+              alt={enemy.name}
+              fill
+              style={{ objectFit: 'contain' }}
+            />
+          </motion.div>
+          <ProgressBar
+            value={enemyHp}
+            max={enemyMaxHp}
+            color="red"
+            className="w-32"
+          />
         </div>
       )}
       {/* Arena divider */}
@@ -38,13 +64,31 @@ export function BattleArena() {
       {player && (
         <div className="flex flex-col items-center">
           <div className="text-center">
-            <div className="font-semibold capitalize">{player.pokemon.name}</div>
-            <div className="text-xs">{t('level')}: {player.level}</div>
+            <div className="font-semibold capitalize">
+              {player.pokemon.name}
+            </div>
+            <div className="text-xs">
+              {t('level')}: {player.level}
+            </div>
           </div>
-          <div className="w-32 h-32 relative">
-            <Image src={player.pokemon.sprites.back} alt={player.pokemon.name} fill style={{ objectFit: 'contain' }} />
-          </div>
-          <ProgressBar value={playerHp} max={playerMaxHp} color="green" className="w-32" />
+          <motion.div
+            className="w-32 h-32 relative"
+            animate={playerHit ? { x: [0, 20, 0] } : {}}
+            transition={{ duration: 0.4 }}
+          >
+            <Image
+              src={player.pokemon.sprites.back}
+              alt={player.pokemon.name}
+              fill
+              style={{ objectFit: 'contain' }}
+            />
+          </motion.div>
+          <ProgressBar
+            value={playerHp}
+            max={playerMaxHp}
+            color="green"
+            className="w-32"
+          />
         </div>
       )}
       {/* Controls */}
@@ -66,7 +110,9 @@ export function BattleArena() {
           </button>
         )}
         {status === 'lost' && (
-          <div className="text-red-500 font-semibold">You lost! Reset progress and try again.</div>
+          <div className="text-red-500 font-semibold">
+            You lost! Reset progress and try again.
+          </div>
         )}
       </div>
     </div>
@@ -77,7 +123,11 @@ export function BattleArena() {
 import { createBattlePokemon } from '@/lib/battle/engine';
 import { NormalisedPokemon } from '@/lib/pokeapi';
 
-function createMaxHp(member: { pokemon: NormalisedPokemon; level: number; hp: number }): number {
+function createMaxHp(member: {
+  pokemon: NormalisedPokemon;
+  level: number;
+  hp: number;
+}): number {
   const key = '__maxHp';
   // @ts-ignore
   if (member[key]) return member[key];
