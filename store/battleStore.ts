@@ -37,7 +37,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
     if (!enemy) return;
     set({ status: 'running', log: [] });
     // Create battle participants
-    const playerActive = createBattlePokemon(team[0].pokemon, team[0].level);
+    const playerActive = createBattlePokemon(team[0].pokemon, team[0].level, true);
     const enemyBattle = createBattlePokemon(enemy, get().enemyLevel);
     // Initialise HP for animation
     set({ playerHp: playerActive.hp, enemyHp: enemyBattle.hp });
@@ -81,8 +81,11 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       useTeamStore.getState().healTeam(healFraction);
       set({ status: 'won' });
     } else {
-      // Player lost
+      // Player lost: heal fully then prepare a new opponent after a short pause
+      useTeamStore.getState().healTeam(1);
       set({ status: 'lost' });
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await get().nextBattle();
     }
   },
   nextBattle: async () => {

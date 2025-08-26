@@ -27,7 +27,7 @@ export const useTeamStore = create<TeamState>((set, get) => ({
   activeIndex: 0,
   setStarter: async (id, level) => {
     const pokemon = await getPokemon(id);
-    const battleMon = createBattlePokemon(pokemon, level);
+    const battleMon = createBattlePokemon(pokemon, level, true);
     set({
       team: [
         {
@@ -44,14 +44,14 @@ export const useTeamStore = create<TeamState>((set, get) => ({
     const { team, maxTeamSize } = get();
     if (team.length >= maxTeamSize) return;
     const pokemon = await getPokemon(id);
-    const battleMon = createBattlePokemon(pokemon, level);
+    const battleMon = createBattlePokemon(pokemon, level, true);
     set({ team: [...team, { pokemon, level, hp: battleMon.hp }] });
     persist(get());
   },
   healTeam: (fraction) => {
     set((state) => {
       const newTeam = state.team.map((member) => {
-        const baseHp = createBattlePokemon(member.pokemon, member.level).hp;
+        const baseHp = createBattlePokemon(member.pokemon, member.level, true).hp;
         const healed = Math.min(baseHp, member.hp + baseHp * fraction);
         return { ...member, hp: healed };
       });

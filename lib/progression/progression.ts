@@ -29,6 +29,15 @@ export function calcLevelFromXp(xp: number): number {
   return Math.max(1, Math.floor(xp / 100) + 1);
 }
 
+/**
+ * Returns an additional HP bonus for the player's Pokémon based on level.
+ * Granting some extra health at low levels makes early battles less
+ * punishing while still allowing difficulty to scale over time.
+ */
+export function calcHpBonus(level: number): number {
+  return 20 + (level - 1) * 5;
+}
+
 export type UpgradeType =
   | 'hp'
   | 'attack'

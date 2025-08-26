@@ -109,11 +109,6 @@ export function BattleArena() {
             {t('nextBattle')}
           </button>
         )}
-        {status === 'lost' && (
-          <div className="text-red-500 font-semibold">
-            You lost! Reset progress and try again.
-          </div>
-        )}
       </div>
     </div>
   );
@@ -132,7 +127,7 @@ function createMaxHp(member: {
   // @ts-ignore
   if (member[key]) return member[key];
   // @ts-ignore
-  member[key] = createBattlePokemon(member.pokemon, member.level).hp;
+  member[key] = createBattlePokemon(member.pokemon, member.level, true).hp;
   return member[key];
 }
 

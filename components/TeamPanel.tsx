@@ -58,6 +58,6 @@ function createMaxHp(member: { pokemon: any; level: number; hp: number }): numbe
   if (member[key]) return member[key];
   // compute once
   // @ts-ignore
-  member[key] = createBattlePokemon(member.pokemon, member.level).hp;
+  member[key] = createBattlePokemon(member.pokemon, member.level, true).hp;
   return member[key];
 }
