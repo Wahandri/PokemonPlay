@@ -16,7 +16,10 @@ export function BattleArena() {
     startBattle,
     nextBattle,
     playerHp,
-    enemyHp
+    enemyHp,
+    playerMoves,
+    playerAttack,
+    turn
   } = useBattleStore();
   const { team } = useTeamStore();
   const t = useTranslate();
@@ -92,7 +95,7 @@ export function BattleArena() {
         </div>
       )}
       {/* Controls */}
-      <div className="mt-4">
+      <div className="mt-4 flex flex-col items-center space-y-2">
         {status === 'idle' && (
           <button
             className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded"
@@ -100,6 +103,25 @@ export function BattleArena() {
           >
             {t('startGame')}
           </button>
+        )}
+        {status === 'running' && (
+          <>
+            {turn === 'player' ? (
+              <div className="flex flex-wrap justify-center gap-2">
+                {playerMoves.map((move, idx) => (
+                  <button
+                    key={move.name}
+                    className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded"
+                    onClick={() => playerAttack(idx)}
+                  >
+                    {move.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="italic">{t('enemyTurn')}</div>
+            )}
+          </>
         )}
         {status === 'won' && (
           <button

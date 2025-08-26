@@ -1,6 +1,12 @@
 import { create } from 'zustand';
-import { simulateBattle, createBattlePokemon } from '@/lib/battle/engine';
-import type { BattleLogEntry } from '@/lib/battle/types';
+import {
+  createBattlePokemon,
+  calculateDamage,
+  getMovesForPokemon,
+  chooseMove
+} from '@/lib/battle/engine';
+import type { BattleLogEntry, BattlePokemon } from '@/lib/battle/types';
+import type { Move } from '@/lib/battle/moves';
 import { getPokemon, NormalisedPokemon } from '@/lib/pokeapi';
 import { useTeamStore } from '@/store/teamStore';
 import { usePlayerStore } from '@/store/playerStore';
@@ -18,7 +24,15 @@ interface BattleState {
   /** Current HP values for rendering during battle. */
   playerHp: number;
   enemyHp: number;
+  /** Moves available for the player's active Pokémon. */
+  playerMoves: Move[];
+  /** Whose turn is it currently? */
+  turn: 'player' | 'enemy';
+  /** Internal battle participants. */
+  playerBattle: BattlePokemon | null;
+  enemyBattle: BattlePokemon | null;
   startBattle: () => Promise<void>;
+  playerAttack: (index: number) => Promise<void>;
   nextBattle: () => Promise<void>;
   reset: () => void;
 }
@@ -30,43 +44,62 @@ export const useBattleStore = create<BattleState>((set, get) => ({
   log: [],
   playerHp: 0,
   enemyHp: 0,
+  playerMoves: [],
+  turn: 'player',
+  playerBattle: null,
+  enemyBattle: null,
   startBattle: async () => {
     const { team } = useTeamStore.getState();
     if (!team.length) return;
     const enemy = get().enemy;
     if (!enemy) return;
-    set({ status: 'running', log: [] });
     // Create battle participants
-    const playerActive = createBattlePokemon(team[0].pokemon, team[0].level, true);
+    const playerBattle = createBattlePokemon(team[0].pokemon, team[0].level, true);
     const enemyBattle = createBattlePokemon(enemy, get().enemyLevel);
-    // Initialise HP for animation
-    set({ playerHp: playerActive.hp, enemyHp: enemyBattle.hp });
-    const outcome = simulateBattle(playerActive, enemyBattle);
-    // Replay log with delay for visual effect
-    for (const entry of outcome.log) {
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      if (entry.attacker === 'player') {
-        set((state) => ({
-          log: [...state.log, entry],
-          enemyHp: entry.targetHp
-        }));
-      } else {
-        set((state) => ({
-          log: [...state.log, entry],
-          playerHp: entry.targetHp
-        }));
-      }
-    }
-    // Update HP of player's active Pokémon
-    useTeamStore.setState((state) => {
-      const newTeam = [...state.team];
-      const remaining = outcome.playerRemainingHp;
-      newTeam[0] = { ...newTeam[0], hp: remaining };
-      return { team: newTeam };
+    set({
+      status: 'running',
+      log: [],
+      playerHp: playerBattle.hp,
+      enemyHp: enemyBattle.hp,
+      playerMoves: getMovesForPokemon(team[0].pokemon),
+      playerBattle,
+      enemyBattle,
+      turn: 'player'
     });
-    // Determine result and reward
-    if (outcome.winner === 'player') {
-      // Gain XP and coins
+  },
+  playerAttack: async (index: number) => {
+    const {
+      playerBattle,
+      enemyBattle,
+      playerMoves,
+      playerHp,
+      enemyHp,
+      turn,
+      status
+    } = get();
+    if (
+      status !== 'running' ||
+      turn !== 'player' ||
+      !playerBattle ||
+      !enemyBattle
+    )
+      return;
+    const move = playerMoves[index];
+    const result = calculateDamage(playerBattle, enemyBattle, move);
+    const newEnemyHp = Math.max(0, enemyHp - result.damage);
+    set((state) => ({
+      log: [...state.log, { attacker: 'player', move, result, targetHp: newEnemyHp }],
+      enemyHp: newEnemyHp,
+      turn: 'enemy'
+    }));
+    if (newEnemyHp <= 0) {
+      // Update team HP
+      useTeamStore.setState((state) => {
+        const newTeam = [...state.team];
+        newTeam[0] = { ...newTeam[0], hp: get().playerHp };
+        return { team: newTeam };
+      });
+      // Rewards
       const battleCount = usePlayerStore.getState().victories;
       const isBoss = (battleCount + 1) % 10 === 0;
       const xpGain = calcExperienceForVictory(isBoss, battleCount);
@@ -74,18 +107,36 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       usePlayerStore.getState().addXp(xpGain);
       usePlayerStore.getState().addCoins(coinGain);
       usePlayerStore.getState().incrementVictories();
-      // Heal team based on auto‑heal upgrade level (each level adds +10% to base heal)
       const { levels } = useUpgradeStore.getState();
       const autoHealLevel = levels['auto-heal'];
       const healFraction = 0.3 + autoHealLevel * 0.1;
       useTeamStore.getState().healTeam(healFraction);
       set({ status: 'won' });
-    } else {
-      // Player lost: heal fully then prepare a new opponent after a short pause
+      return;
+    }
+
+    // Enemy's turn
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    const enemyMove = chooseMove(enemyBattle);
+    const enemyResult = calculateDamage(enemyBattle, playerBattle, enemyMove);
+    const newPlayerHp = Math.max(0, playerHp - enemyResult.damage);
+    set((state) => ({
+      log: [...state.log, { attacker: 'enemy', move: enemyMove, result: enemyResult, targetHp: newPlayerHp }],
+      playerHp: newPlayerHp
+    }));
+    // Update team HP
+    useTeamStore.setState((state) => {
+      const newTeam = [...state.team];
+      newTeam[0] = { ...newTeam[0], hp: newPlayerHp };
+      return { team: newTeam };
+    });
+    if (newPlayerHp <= 0) {
       useTeamStore.getState().healTeam(1);
-      set({ status: 'lost' });
+      set({ status: 'lost', turn: 'player' });
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await get().nextBattle();
+    } else {
+      set({ turn: 'player' });
     }
   },
   nextBattle: async () => {
@@ -108,7 +159,11 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       status: 'idle',
       log: [],
       playerHp,
-      enemyHp
+      enemyHp,
+      playerMoves: [],
+      playerBattle: null,
+      enemyBattle: null,
+      turn: 'player'
     });
   },
   reset: () => {
@@ -118,7 +173,12 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       status: 'idle',
       log: [],
       playerHp: 0,
-      enemyHp: 0
+      enemyHp: 0,
+      playerMoves: [],
+      playerBattle: null,
+      enemyBattle: null,
+      turn: 'player'
     });
   }
 }));
+
