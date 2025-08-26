@@ -29,8 +29,8 @@ export const dictionary: Dictionary = {
     mute: 'Mute',
     unmute: 'Unmute',
     reset: 'Reset Progress',
-    language: 'Language'
-    ,
+    language: 'Language',
+    enemyTurn: "Enemy's turn...",
     'choose your starter': 'Choose your starter'
   },
   es: {
@@ -52,8 +52,8 @@ export const dictionary: Dictionary = {
     mute: 'Silenciar',
     unmute: 'Activar sonido',
     reset: 'Reiniciar',
-    language: 'Idioma'
-    ,
+    language: 'Idioma',
+    enemyTurn: 'Turno del enemigo...',
     'choose your starter': 'Elige tu inicial'
   }
 };

@@ -32,7 +32,7 @@ const typeChart: Record<string, Record<string, number>> = {
 
 /** Returns a list of moves appropriate for the Pokémon's primary type. If
  * no moves are defined for the first type, fallback to normal moves. */
-function getMovesForPokemon(pokemon: NormalisedPokemon): Move[] {
+export function getMovesForPokemon(pokemon: NormalisedPokemon): Move[] {
   const primaryType = pokemon.types[0] ?? 'normal';
   const moves = BASIC_MOVES[primaryType as keyof typeof BASIC_MOVES];
   return moves ?? BASIC_MOVES['normal'];
@@ -107,7 +107,7 @@ export function calculateDamage(
  * the highest power that is not on cooldown. In this simplified
  * implementation cooldown is ignored (all moves available every turn).
  */
-function chooseMove(pokemon: BattlePokemon): Move {
+export function chooseMove(pokemon: BattlePokemon): Move {
   const moves = getMovesForPokemon(pokemon.pokemon);
   // Pick highest power move
   return moves.reduce((best, move) => (move.power > best.power ? move : best), moves[0]);
