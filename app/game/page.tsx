@@ -1,0 +1,162 @@
+"use client";
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useTeamStore } from '@/store/teamStore';
+import { useBattleStore } from '@/store/battleStore';
+import { usePlayerStore } from '@/store/playerStore';
+import { useSettingsStore } from '@/store/settingsStore';
+import { useUpgradeStore } from '@/store/upgradeStore';
+import { BattleArena } from '@/components/BattleArena';
+import { LogPanel } from '@/components/LogPanel';
+import { TeamPanel } from '@/components/TeamPanel';
+import { UpgradePanel } from '@/components/UpgradePanel';
+import { useTranslate } from '@/hooks/useTranslate';
+
+export default function GamePage() {
+  const router = useRouter();
+  const { team, setStarter } = useTeamStore();
+  const { enemy, nextBattle, status, log } = useBattleStore();
+  const player = usePlayerStore();
+  const settings = useSettingsStore();
+  const t = useTranslate();
+  const [selecting, setSelecting] = useState(false);
+  const [carouselId, setCarouselId] = useState(1);
+
+  // If no team yet, start the selection overlay on mount
+  useEffect(() => {
+    if (team.length === 0 && !selecting) {
+      startSelection();
+    }
+  }, [team.length]);
+
+  // Ensure an enemy exists when arriving on the page after having a team
+  useEffect(() => {
+    if (team.length > 0 && !enemy && status === 'idle') {
+      nextBattle();
+    }
+  }, [team.length, enemy, status]);
+
+  function startSelection() {
+    setSelecting(true);
+    // Spin quickly through Pokémon IDs
+    let current = 1;
+    const interval = setInterval(() => {
+      current = (current % 150) + 1;
+      setCarouselId(current);
+    }, 50);
+    const timeout = setTimeout(async () => {
+      clearInterval(interval);
+      const selected = Math.floor(Math.random() * 150) + 1;
+      setCarouselId(selected);
+      // Wait a moment for the final sprite to display
+      setTimeout(async () => {
+        await setStarter(selected, 1);
+        // Reset selection overlay
+        setSelecting(false);
+        await nextBattle();
+      }, 1000);
+      clearTimeout(timeout);
+    }, 3000);
+  }
+
+  // Settings handlers
+  function toggleMute() {
+    settings.toggleMute();
+  }
+  function switchLanguage() {
+    settings.setLanguage(settings.language === 'en' ? 'es' : 'en');
+  }
+  function resetProgress() {
+    if (typeof window !== 'undefined' && window.confirm('Reset all progress?')) {
+      settings.reset();
+      usePlayerStore.getState().reset();
+      useTeamStore.getState().reset();
+      useUpgradeStore.getState().reset();
+      useBattleStore.getState().reset();
+      router.push('/');
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* Header */}
+      <header className="p-4 flex items-center justify-between bg-white dark:bg-gray-900 shadow">
+        <div className="flex items-center space-x-4">
+          <div className="text-sm">
+            {t('level')}: {player.level}
+          </div>
+          <div className="text-sm">
+            {t('experience')}: {player.xp}
+          </div>
+          <div className="text-sm">
+            {t('coins')}: {player.coins}
+          </div>
+        </div>
+        <div className="flex items-center space-x-2 text-sm">
+          <button
+            className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded"
+            onClick={toggleMute}
+          >
+            {settings.muted ? t('unmute') : t('mute')}
+          </button>
+          <button
+            className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded"
+            onClick={switchLanguage}
+          >
+            {t('language')}: {settings.language.toUpperCase()}
+          </button>
+          <button
+            className="px-2 py-1 bg-red-500 text-white rounded"
+            onClick={resetProgress}
+          >
+            {t('reset')}
+          </button>
+        </div>
+      </header>
+      {/* Main content grid */}
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 p-4">
+        {/* Log panel */}
+        <div className="md:col-span-1">
+          <LogPanel log={log} />
+        </div>
+        {/* Battle arena */}
+        <div className="md:col-span-2 flex flex-col items-center">
+          <BattleArena />
+        </div>
+        {/* Sidebar: upgrades and team */}
+        <div className="md:col-span-1 space-y-4">
+          <UpgradePanel />
+          <TeamPanel />
+        </div>
+      </div>
+      {/* Starter selection overlay */}
+      <AnimatePresence>
+        {selecting && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black bg-opacity-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="p-8 bg-white dark:bg-gray-900 rounded-lg shadow flex flex-col items-center">
+              <div className="text-xl font-semibold mb-4">{t('choose your starter')}</div>
+              <div className="w-40 h-40 relative mb-4">
+                {/* Display front sprite of current ID */}
+                {/* Use raw GitHub sprite for quick load */}
+                <img
+                  src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${carouselId}.png`}
+                  alt="pokemon"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="text-center">#{carouselId}</div>
+              <div className="mt-4 text-sm text-gray-500">{t('startGame')}...</div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
