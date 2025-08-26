@@ -31,7 +31,10 @@ export const dictionary: Dictionary = {
     reset: 'Reset Progress',
     language: 'Language',
     enemyTurn: "Enemy's turn...",
-    'choose your starter': 'Choose your starter'
+    'choose your starter': 'Choose your starter',
+    empty: 'Empty',
+    capture: 'Capture',
+    captureQuestion: 'Capture this Pokémon?'
   },
   es: {
     play: 'Jugar',
@@ -54,6 +57,9 @@ export const dictionary: Dictionary = {
     reset: 'Reiniciar',
     language: 'Idioma',
     enemyTurn: 'Turno del enemigo...',
-    'choose your starter': 'Elige tu inicial'
+    'choose your starter': 'Elige tu inicial',
+    empty: 'Vacío',
+    capture: 'Capturar',
+    captureQuestion: '¿Capturar este Pokémon?'
   }
 };

@@ -2,6 +2,7 @@
 
 import { PropsWithChildren, useEffect } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
+import { AudioManager } from '@/components/AudioManager';
 
 /**
  * Providers component is used to perform client‑side only hydration
@@ -17,5 +18,5 @@ export function Providers({ children }: PropsWithChildren) {
     hydrateSettings();
   }, [hydrateSettings]);
 
-  return <>{children}</>;
+  return <AudioManager>{children}</AudioManager>;
 }

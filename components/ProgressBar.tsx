@@ -1,6 +1,7 @@
 "use client";
 
 import clsx from 'clsx';
+import { motion } from 'framer-motion';
 
 interface ProgressBarProps {
   value: number;
@@ -23,9 +24,10 @@ export function ProgressBar({ value, max, color = 'green', className }: Progress
   }[color] ?? 'bg-green-500';
   return (
     <div className={clsx('w-full h-3 rounded bg-gray-300', className)}>
-      <div
+      <motion.div
         className={clsx('h-full rounded', barColor)}
-        style={{ width: `${percentage}%` }}
+        animate={{ width: `${percentage}%` }}
+        transition={{ duration: 0.5 }}
       />
     </div>
   );

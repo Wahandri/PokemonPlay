@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getPokemon, NormalisedPokemon } from '@/lib/pokeapi';
 import { createBattlePokemon } from '@/lib/battle/engine';
+import { usePlayerStore } from '@/store/playerStore';
 
 interface TeamMember {
   pokemon: NormalisedPokemon;
@@ -14,6 +15,7 @@ interface TeamState {
   activeIndex: number;
   setStarter: (id: number, level: number) => Promise<void>;
   addPokemon: (id: number, level: number) => Promise<void>;
+  capturePokemon: (pokemon: NormalisedPokemon, level: number) => Promise<void>;
   healTeam: (fraction: number) => void;
   increaseTeamSize: () => void;
   reset: () => void;
@@ -46,6 +48,15 @@ export const useTeamStore = create<TeamState>((set, get) => ({
     const pokemon = await getPokemon(id);
     const battleMon = createBattlePokemon(pokemon, level, true);
     set({ team: [...team, { pokemon, level, hp: battleMon.hp }] });
+    persist(get());
+  },
+  capturePokemon: async (pokemon, level) => {
+    const { team, maxTeamSize } = get();
+    if (team.length >= maxTeamSize) return;
+    const battleMon = createBattlePokemon(pokemon, level, true);
+    set({ team: [...team, { pokemon, level, hp: battleMon.hp }] });
+    usePlayerStore.getState().addCoins(-5);
+    usePlayerStore.getState().addXp(-10);
     persist(get());
   },
   healTeam: (fraction) => {

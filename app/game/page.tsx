@@ -23,7 +23,7 @@ export default function GamePage() {
   const settings = useSettingsStore();
   const t = useTranslate();
   const [selecting, setSelecting] = useState(false);
-  const [carouselId, setCarouselId] = useState(1);
+  const [choices, setChoices] = useState<number[]>([]);
 
   // If no team yet, start the selection overlay on mount
   useEffect(() => {
@@ -40,26 +40,19 @@ export default function GamePage() {
   }, [team.length, enemy, status]);
 
   function startSelection() {
+    const ids: number[] = [];
+    while (ids.length < 3) {
+      const id = Math.floor(Math.random() * 150) + 1;
+      if (!ids.includes(id)) ids.push(id);
+    }
+    setChoices(ids);
     setSelecting(true);
-    // Spin quickly through Pokémon IDs
-    let current = 1;
-    const interval = setInterval(() => {
-      current = (current % 150) + 1;
-      setCarouselId(current);
-    }, 50);
-    const timeout = setTimeout(async () => {
-      clearInterval(interval);
-      const selected = Math.floor(Math.random() * 150) + 1;
-      setCarouselId(selected);
-      // Wait a moment for the final sprite to display
-      setTimeout(async () => {
-        await setStarter(selected, 1);
-        // Reset selection overlay
-        setSelecting(false);
-        await nextBattle();
-      }, 1000);
-      clearTimeout(timeout);
-    }, 3000);
+  }
+
+  async function chooseStarter(id: number) {
+    await setStarter(id, 1);
+    setSelecting(false);
+    await nextBattle();
   }
 
   // Settings handlers
@@ -149,19 +142,20 @@ export default function GamePage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <div className="p-8 bg-white dark:bg-gray-900 rounded-lg shadow flex flex-col items-center">
-              <div className="text-xl font-semibold mb-4">{t('choose your starter')}</div>
-              <div className="w-40 h-40 relative mb-4">
-                {/* Display front sprite of current ID */}
-                {/* Use raw GitHub sprite for quick load */}
-                <img
-                  src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${carouselId}.png`}
-                  alt="pokemon"
-                  className="w-full h-full object-contain"
-                />
+            <div className="p-8 bg-white dark:bg-gray-900 rounded-lg shadow flex flex-col items-center space-y-4">
+              <div className="text-xl font-semibold">{t('choose your starter')}</div>
+              <div className="flex space-x-4">
+                {choices.map((id) => (
+                  <button key={id} onClick={() => chooseStarter(id)} className="flex flex-col items-center">
+                    <img
+                      src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`}
+                      alt="pokemon"
+                      className="w-20 h-20 object-contain"
+                    />
+                    <span>#{id}</span>
+                  </button>
+                ))}
               </div>
-              <div className="text-center">#{carouselId}</div>
-              <div className="mt-4 text-sm text-gray-500">{t('startGame')}...</div>
             </div>
           </motion.div>
         )}
