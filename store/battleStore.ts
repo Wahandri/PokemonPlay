@@ -81,6 +81,7 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       turn,
       status
     } = get();
+
     if (
       status !== 'running' ||
       turn !== 'player' ||
@@ -88,22 +89,45 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       !enemyBattle
     )
       return;
-    const move = playerMoves[index];
-    const result = calculateDamage(playerBattle, enemyBattle, move);
-    const newEnemyHp = Math.max(0, enemyHp - result.damage);
-    set((state) => ({
-      log: [...state.log, { attacker: 'player', move, result, targetHp: newEnemyHp }],
-      enemyHp: newEnemyHp,
-      turn: 'enemy'
-    }));
-    if (newEnemyHp <= 0) {
-      // Update team HP
-      useTeamStore.setState((state) => {
-        const newTeam = [...state.team];
-        newTeam[0] = { ...newTeam[0], hp: get().playerHp };
-        return { team: newTeam };
-      });
-      // Rewards
+
+    // --- Player Turn ---
+    let canMove = true;
+    if (playerBattle.status === 'sleep') {
+      if (Math.random() < 0.33) {
+        playerBattle.status = 'none';
+        set({ log: [...get().log, { attacker: 'player', move: { name: 'woke up', type: 'normal', power: 0, cooldown: 0 }, result: { damage: 0, critical: false, effectiveness: 1 }, targetHp: enemyHp }] });
+      } else {
+        canMove = false;
+        set({ log: [...get().log, { attacker: 'player', move: { name: 'is sleeping', type: 'normal', power: 0, cooldown: 0 }, result: { damage: 0, critical: false, effectiveness: 1 }, targetHp: enemyHp }] });
+      }
+    } else if (playerBattle.status === 'paralyze') {
+      if (Math.random() < 0.25) {
+        canMove = false;
+        set({ log: [...get().log, { attacker: 'player', move: { name: 'is paralyzed', type: 'normal', power: 0, cooldown: 0 }, result: { damage: 0, critical: false, effectiveness: 1 }, targetHp: enemyHp }] });
+      }
+    }
+
+    let currentEnemyHp = enemyHp;
+
+    if (canMove) {
+      const move = playerMoves[index];
+      const result = calculateDamage(playerBattle, enemyBattle, move);
+      currentEnemyHp = Math.max(0, enemyHp - result.damage);
+
+      // Apply status to enemy
+      if (result.appliedStatus) {
+        enemyBattle.status = result.appliedStatus;
+      }
+
+      set((state) => ({
+        log: [...state.log, { attacker: 'player', move, result, targetHp: currentEnemyHp }],
+        enemyHp: currentEnemyHp,
+        enemyBattle: { ...enemyBattle } // Trigger update
+      }));
+    }
+
+    // Check Win
+    if (currentEnemyHp <= 0) {
       const battleCount = usePlayerStore.getState().victories;
       const isBoss = (battleCount + 1) % 10 === 0;
       const xpGain = calcExperienceForVictory(isBoss, battleCount);
@@ -116,34 +140,118 @@ export const useBattleStore = create<BattleState>((set, get) => ({
       const healFraction = 0.3 + autoHealLevel * 0.1;
       useTeamStore.getState().healTeam(healFraction);
       const { team, maxTeamSize } = useTeamStore.getState();
-      const canCapture = team.length < maxTeamSize ? enemy : null;
+      const canCapture = team.length < maxTeamSize ? get().enemy : null;
       set({ status: 'won', pendingCapture: canCapture });
       return;
     }
 
-    // Enemy's turn
+    set({ turn: 'enemy' });
     await new Promise((resolve) => setTimeout(resolve, 600));
-    const enemyMove = chooseMove(enemyBattle);
-    const enemyResult = calculateDamage(enemyBattle, playerBattle, enemyMove);
-    const newPlayerHp = Math.max(0, playerHp - enemyResult.damage);
-    set((state) => ({
-      log: [...state.log, { attacker: 'enemy', move: enemyMove, result: enemyResult, targetHp: newPlayerHp }],
-      playerHp: newPlayerHp
-    }));
-    // Update team HP
+
+    // --- Enemy Turn ---
+    let enemyCanMove = true;
+    if (enemyBattle.status === 'sleep') {
+      if (Math.random() < 0.33) {
+        enemyBattle.status = 'none';
+        set({ log: [...get().log, { attacker: 'enemy', move: { name: 'woke up', type: 'normal', power: 0, cooldown: 0 }, result: { damage: 0, critical: false, effectiveness: 1 }, targetHp: playerHp }] });
+      } else {
+        enemyCanMove = false;
+        set({ log: [...get().log, { attacker: 'enemy', move: { name: 'is sleeping', type: 'normal', power: 0, cooldown: 0 }, result: { damage: 0, critical: false, effectiveness: 1 }, targetHp: playerHp }] });
+      }
+    } else if (enemyBattle.status === 'paralyze') {
+      if (Math.random() < 0.25) {
+        enemyCanMove = false;
+        set({ log: [...get().log, { attacker: 'enemy', move: { name: 'is paralyzed', type: 'normal', power: 0, cooldown: 0 }, result: { damage: 0, critical: false, effectiveness: 1 }, targetHp: playerHp }] });
+      }
+    }
+
+    let currentPlayerHp = get().playerHp;
+
+    if (enemyCanMove) {
+      const enemyMove = chooseMove(enemyBattle);
+      const enemyResult = calculateDamage(enemyBattle, playerBattle, enemyMove);
+      currentPlayerHp = Math.max(0, currentPlayerHp - enemyResult.damage);
+
+      // Apply status to player
+      if (enemyResult.appliedStatus) {
+        playerBattle.status = enemyResult.appliedStatus;
+      }
+
+      set((state) => ({
+        log: [...state.log, { attacker: 'enemy', move: enemyMove, result: enemyResult, targetHp: currentPlayerHp }],
+        playerHp: currentPlayerHp,
+        playerBattle: { ...playerBattle }
+      }));
+    }
+
+    // Update Team HP
     useTeamStore.setState((state) => {
       const newTeam = [...state.team];
-      newTeam[0] = { ...newTeam[0], hp: newPlayerHp };
+      newTeam[0] = { ...newTeam[0], hp: currentPlayerHp };
       return { team: newTeam };
     });
-    if (newPlayerHp <= 0) {
+
+    // Check Loss
+    if (currentPlayerHp <= 0) {
       useTeamStore.getState().healTeam(1);
       set({ status: 'lost', turn: 'player' });
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await get().nextBattle();
-    } else {
-      set({ turn: 'player' });
+      return;
     }
+
+    // --- End of Round (DoT) ---
+    // Player Burn/Poison
+    if (playerBattle.status === 'burn' || playerBattle.status === 'poison') {
+      const damage = Math.max(1, Math.round(createBattlePokemon(playerBattle.pokemon, playerBattle.level, true).hp / (playerBattle.status === 'poison' ? 8 : 16)));
+      currentPlayerHp = Math.max(0, currentPlayerHp - damage);
+      set((state) => ({
+        log: [...state.log, { attacker: 'player', move: { name: playerBattle.status, type: 'normal', power: 0, cooldown: 0 }, result: { damage, critical: false, effectiveness: 1 }, targetHp: currentPlayerHp }],
+        playerHp: currentPlayerHp
+      }));
+      // Update Team HP
+      useTeamStore.setState((state) => {
+        const newTeam = [...state.team];
+        newTeam[0] = { ...newTeam[0], hp: currentPlayerHp };
+        return { team: newTeam };
+      });
+      if (currentPlayerHp <= 0) {
+        useTeamStore.getState().healTeam(1);
+        set({ status: 'lost', turn: 'player' });
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await get().nextBattle();
+        return;
+      }
+    }
+
+    // Enemy Burn/Poison
+    if (enemyBattle.status === 'burn' || enemyBattle.status === 'poison') {
+      const damage = Math.max(1, Math.round(createBattlePokemon(enemyBattle.pokemon, enemyBattle.level).hp / (enemyBattle.status === 'poison' ? 8 : 16)));
+      currentEnemyHp = Math.max(0, currentEnemyHp - damage);
+      set((state) => ({
+        log: [...state.log, { attacker: 'enemy', move: { name: enemyBattle.status, type: 'normal', power: 0, cooldown: 0 }, result: { damage, critical: false, effectiveness: 1 }, targetHp: currentEnemyHp }],
+        enemyHp: currentEnemyHp
+      }));
+      if (currentEnemyHp <= 0) {
+        const battleCount = usePlayerStore.getState().victories;
+        const isBoss = (battleCount + 1) % 10 === 0;
+        const xpGain = calcExperienceForVictory(isBoss, battleCount);
+        const coinGain = calcCoinsForVictory(isBoss);
+        usePlayerStore.getState().addXp(xpGain);
+        usePlayerStore.getState().addCoins(coinGain);
+        usePlayerStore.getState().incrementVictories();
+        const { levels } = useUpgradeStore.getState();
+        const autoHealLevel = levels['auto-heal'];
+        const healFraction = 0.3 + autoHealLevel * 0.1;
+        useTeamStore.getState().healTeam(healFraction);
+        const { team, maxTeamSize } = useTeamStore.getState();
+        const canCapture = team.length < maxTeamSize ? get().enemy : null;
+        set({ status: 'won', pendingCapture: canCapture });
+        return;
+      }
+    }
+
+    set({ turn: 'player' });
   },
   captureEnemy: async () => {
     const { enemy, enemyLevel } = get();

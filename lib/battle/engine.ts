@@ -55,7 +55,8 @@ export function createBattlePokemon(
     pokemon,
     hp: baseHp + bonus,
     level,
-    cooldowns: new Array(moves.length).fill(0)
+    cooldowns: new Array(moves.length).fill(0),
+    status: 'none'
   };
 }
 
@@ -84,7 +85,11 @@ export function calculateDamage(
 ): DamageResult {
   const atkStat = attacker.pokemon.stats.attack * (1 + (attacker.level - 1) * 0.02);
   const defStat = defender.pokemon.stats.defense * (1 + (defender.level - 1) * 0.02);
-  const base = (atkStat / defStat) * move.power;
+
+  // Burn reduces attack by 50%
+  const burnNerf = attacker.status === 'burn' ? 0.5 : 1;
+
+  const base = (atkStat * burnNerf / defStat) * move.power;
   // Same type attack bonus
   const stab = attacker.pokemon.types.includes(move.type) ? 1.25 : 1;
   // Type effectiveness
@@ -96,10 +101,20 @@ export function calculateDamage(
   // Variation +/-10%
   const variation = 0.9 + Math.random() * 0.2;
   const damage = Math.round(base * stab * effectiveness * critMultiplier * variation);
+
+  // Status application
+  let appliedStatus: 'none' | 'burn' | 'paralyze' | 'sleep' | 'poison' | undefined;
+  if (move.statusEffect && defender.status === 'none' && move.statusChance) {
+    if (Math.random() < move.statusChance) {
+      appliedStatus = move.statusEffect;
+    }
+  }
+
   return {
-    damage: Math.max(1, damage),
+    damage: Math.max(move.power > 0 ? 1 : 0, damage), // Allow 0 damage for status moves
     critical,
-    effectiveness
+    effectiveness,
+    appliedStatus
   };
 }
 

@@ -46,14 +46,14 @@ export function BattleArena() {
     status === 'won'
       ? { scale: [1, 1.2, 0], opacity: [1, 0] }
       : enemyHit
-      ? { x: [0, -20, 0] }
-      : {};
+        ? { x: [0, -20, 0] }
+        : {};
   const playerAnimate =
     status === 'lost'
       ? { scale: [1, 0.8, 0], opacity: [1, 0] }
       : playerHit
-      ? { x: [0, 20, 0] }
-      : {};
+        ? { x: [0, 20, 0] }
+        : {};
 
   return (
     <div className="relative flex flex-col items-center space-y-4">
@@ -96,12 +96,23 @@ export function BattleArena() {
               style={{ objectFit: 'contain' }}
             />
           </motion.div>
-          <ProgressBar
-            value={enemyHp}
-            max={enemyMaxHp}
-            color="red"
-            className="w-32"
-          />
+          <div className="flex items-center space-x-2">
+            <ProgressBar
+              value={enemyHp}
+              max={enemyMaxHp}
+              color="red"
+              className="w-32"
+            />
+            {enemyBattle?.status !== 'none' && (
+              <span className={`text-xs font-bold px-1 rounded ${enemyBattle?.status === 'burn' ? 'bg-red-500 text-white' :
+                  enemyBattle?.status === 'paralyze' ? 'bg-yellow-400 text-black' :
+                    enemyBattle?.status === 'sleep' ? 'bg-gray-400 text-white' :
+                      enemyBattle?.status === 'poison' ? 'bg-purple-500 text-white' : ''
+                }`}>
+                {enemyBattle?.status.toUpperCase().slice(0, 3)}
+              </span>
+            )}
+          </div>
         </div>
       )}
       {/* Arena divider */}
@@ -129,12 +140,23 @@ export function BattleArena() {
               style={{ objectFit: 'contain' }}
             />
           </motion.div>
-          <ProgressBar
-            value={playerHp}
-            max={playerMaxHp}
-            color="green"
-            className="w-32"
-          />
+          <div className="flex items-center space-x-2">
+            <ProgressBar
+              value={playerHp}
+              max={playerMaxHp}
+              color="green"
+              className="w-32"
+            />
+            {playerBattle?.status !== 'none' && (
+              <span className={`text-xs font-bold px-1 rounded ${playerBattle?.status === 'burn' ? 'bg-red-500 text-white' :
+                  playerBattle?.status === 'paralyze' ? 'bg-yellow-400 text-black' :
+                    playerBattle?.status === 'sleep' ? 'bg-gray-400 text-white' :
+                      playerBattle?.status === 'poison' ? 'bg-purple-500 text-white' : ''
+                }`}>
+                {playerBattle?.status.toUpperCase().slice(0, 3)}
+              </span>
+            )}
+          </div>
         </div>
       )}
       {/* Controls */}
